@@ -1,33 +1,45 @@
 <script setup>
-import { ref } from "vue";
+import { ref, computed, watch } from "vue";
 
-let charactersData = ref([]);
-let page = ref(1);
-const disabledPrev = ref(false);
-const disabledNext = ref(false);
-const searchItem = ref("");
+const BASE_URL = "https://rickandmortyapi.com/api/character";
 
-const getData = (page) => {
-  fetch(`https://rickandmortyapi.com/api/character/?page=${page}`)
+const info = ref(null);
+const url = ref(BASE_URL);
+const charactersData = ref([]);
+const query = ref("");
+const error = ref("");
+
+const page = computed(() => parseInt(url.value.slice(-1)) || 1);
+
+const names = {};
+const getEpisodes = () =>
+  Promise.all(
+    [1, 2, 3].map((page) => {
+      return fetch(
+        `https://rickandmortyapi.com/api/episode/?page=${page}`
+      ).then((response) => response.json());
+    })
+  ).then((items) => {
+    items.forEach(({ results }) => {
+      results.forEach(({ id, name }) => {
+        names[`https://rickandmortyapi.com/api/episode/${id}`] = name;
+      });
+    });
+  });
+
+const getData = () => {
+  fetch(url.value)
     .then((response) => response.json())
     .then((data) => {
+      info.value = data.info;
+      error.value = data.error || "";
       charactersData.value = data.results;
     });
 };
 
-getData(page.value); // Вызываем getData для загрузки данных при инициализации
+watch(() => url.value, getData);
 
-const nextPage = () => {
-  if (page.value < 42) {
-    getData(page.value++);
-  }
-};
-
-const prevPage = () => {
-  if (page.value > 1) {
-    getData(page.value--);
-  }
-};
+getEpisodes().then(getData); // Вызываем getData для загрузки данных при инициализации
 </script>
 
 <template>
@@ -53,10 +65,16 @@ const prevPage = () => {
             <span class="info__status-indicator"></span>{{ character.status }} -
             {{ character.species }}
           </dd>
-          <dt class="info__location">Last known location:</dt>
-          <dd>{{ character.origin.name }}</dd>
-          <dt class="info__seen">First seen in:</dt>
-          <dd>{{ character.episode[0] }}</dd>
+          <dt class="info__param">Last known location:</dt>
+          <dd>
+            <a :href="character.location.url">{{ character.location.name }}</a>
+          </dd>
+          <dt class="info__param">First seen in:</dt>
+          <dd>
+            <a :href="character.episode[0]">{{
+              names[character.episode[0]]
+            }}</a>
+          </dd>
         </dl>
       </li>
     </ul>
@@ -99,7 +117,6 @@ input[type="search"] {
 
 .controls-wrapper {
   display: flex;
-  align-items: center;
 }
 
 .buttons {
@@ -115,10 +132,12 @@ input[type="search"] {
 }
 
 .character-list {
+  margin: 0;
+  padding: 0;
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: 30px;
-  width: 1300px;
+  gap: 20px;
+  width: 1240px;
 }
 
 .character-item {
@@ -132,7 +151,7 @@ input[type="search"] {
   overflow: hidden;
   background: rgb(60, 62, 68);
   border-radius: 0.5rem;
-  margin: 0.75rem;
+  margin: 20px;
   box-shadow: rgba(0, 0, 0, 0.1) 0px 4px 6px -1px,
     rgba(0, 0, 0, 0.06) 0px 2px 4px -1px;
 }
